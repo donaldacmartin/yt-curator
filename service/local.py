@@ -11,7 +11,7 @@ def load_subscriptions():
             reader = DictReader(csv_file)
             return [subscription for subscription in reader]
     else:
-        return None
+        return []
 
 
 def save_subscriptions(subscriptions):

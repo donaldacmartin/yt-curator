@@ -1,5 +1,5 @@
-from repo.channel import get_playlists
-from repo.playlist import get_playlist_videos
+from service.playlist import get_playlists, get_playlist_videos
+from service.repo import list_subscriptions
 
 
 GRP_LEN = 50
@@ -8,16 +8,12 @@ SNIPPET = "snippet"
 TITLE = "title"
 RESOURCE = "resourceId"
 CHANNEL = "channelId"
-ITEMS = "items"
-NEXT_PAGE = "nextPageToken"
 
 
-def get_my_subscriptions(service):
-    subscriptions = _get_subscriptions(service)
-    snippets = [sub[SNIPPET] for sub in subscriptions if SNIPPET in sub]
-    resources = [(snip[TITLE], snip[RESOURCE]) for snip in snippets]
-    subs = [{CHANNEL: res[CHANNEL], TITLE: title} for title, res in resources]
-    return _no_dupe_subs(subs)
+def get_yt_subscriptions(service):
+    subscription_response = list_subscriptions(service)
+    subscriptions = _extract_subs_from(subscription_response)
+    return _no_duplicate_subscriptions(subscriptions)
 
 
 def get_videos_for_subscriptions(subscriptions, service):
@@ -43,33 +39,22 @@ def get_videos_for_subscriptions(subscriptions, service):
     return _no_duplicates(ordered_vids)
 
 
-def _get_subscriptions(service, page_token=""):
-    params = {
-        "part": "snippet",
-        "mine": True,
-        "maxResults": 50,
-        "pageToken": page_token
-    }
-
-    response = service.subscriptions().list(**params).execute()
-    items = response[ITEMS] if ITEMS in response else []
-
-    if NEXT_PAGE in response:
-        return items + _get_subscriptions(service, response[NEXT_PAGE])
-    else:
-        return items
+def _extract_subs_from(response):
+    snippets = [sub[SNIPPET] for sub in response if SNIPPET in sub]
+    resources = [(snip[TITLE], snip[RESOURCE]) for snip in snippets]
+    return [{CHANNEL: res[CHANNEL], TITLE: title} for title, res in resources]
 
 
-def _no_dupe_subs(subscriptions):
+def _no_duplicate_subscriptions(subscriptions):
     encountered_channels = set()
-    no_dup_subs = []
+    unique_list = []
 
     for sub in subscriptions:
         if sub[CHANNEL] not in encountered_channels:
-            no_dup_subs.append(sub)
+            unique_list.append(sub)
             encountered_channels.add(sub[CHANNEL])
 
-    return no_dup_subs
+    return unique_list
 
 
 def _no_duplicates(videos):
